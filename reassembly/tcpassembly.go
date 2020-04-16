@@ -98,6 +98,9 @@ type ScatterGather interface {
 	KeepFrom(offset int)
 	// Return CaptureInfo of packet corresponding to given offset
 	CaptureInfo(offset int) gopacket.CaptureInfo
+	// Return AssemblerContext of packet corresponding to given offset. Returns
+	// nil if the offset is invalid.
+	AssemblerContext(offset int) AssemblerContext
 	// Return some info about the reassembled chunks
 	Info() (direction TCPFlowDirection, start bool, end bool, skip int)
 	// Return some stats regarding the state of the stream
@@ -156,19 +159,28 @@ func (rl *reassemblyObject) KeepFrom(offset int) {
 }
 
 func (rl *reassemblyObject) CaptureInfo(offset int) gopacket.CaptureInfo {
+	ac := rl.AssemblerContext(offset)
+	if ac == nil {
+		// Invalid offset
+		return gopacket.CaptureInfo{}
+	}
+	return ac.GetCaptureInfo()
+}
+
+func (rl *reassemblyObject) AssemblerContext(offset int) AssemblerContext {
 	current := 0
 	var r byteContainer
 	for _, r = range rl.all {
 		if current >= offset {
-			return r.captureInfo()
+			return r.assemblerContext()
 		}
 		current += r.length()
 	}
 	if r != nil && current >= offset {
-		return r.captureInfo()
+		return r.assemblerContext()
 	}
 	// Invalid offset
-	return gopacket.CaptureInfo{}
+	return nil
 }
 
 func (rl *reassemblyObject) Info() (TCPFlowDirection, bool, bool, int) {
