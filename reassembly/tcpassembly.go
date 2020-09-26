@@ -192,7 +192,8 @@ func (rl *reassemblyObject) Stats() TCPAssemblyStats {
 	}
 }
 
-const pageBytes = 1900
+// const pageBytes = 1900
+const pageBytes = 3
 
 // TCPFlowDirection distinguish the two half-connections directions.
 //
@@ -249,6 +250,7 @@ func (p *page) assemblerContext() AssemblerContext {
 	return p.ac
 }
 func (p *page) convertToPages(pc *pageCache, skip int, ac AssemblerContext) (*page, *page, int) {
+	fmt.Println("KKU HI")
 	if skip != 0 {
 		p.bytes = p.bytes[skip:]
 		p.seq = p.seq.Add(skip)
@@ -1032,6 +1034,7 @@ func (a *Assembler) cleanSG(half *halfconnection, ac AssemblerContext) {
 		skip = a.cacheSG.toKeep
 		found := false
 		for ndx, r = range a.cacheSG.all {
+			fmt.Printf("KKU cleanSG %d %d\n", ndx, r.length())
 			if a.cacheSG.toKeep < cur+r.length() {
 				found = true
 				break
@@ -1045,6 +1048,9 @@ func (a *Assembler) cleanSG(half *halfconnection, ac AssemblerContext) {
 			ndx++
 		}
 	}
+
+	fmt.Println("KKU cleanSG ", a.cacheSG.toKeep, skip, ndx, len(a.cacheSG.all))
+
 	// Release consumed pages
 	for _, r := range a.cacheSG.all[:ndx] {
 		if r == half.saved {
@@ -1069,7 +1075,8 @@ func (a *Assembler) cleanSG(half *halfconnection, ac AssemblerContext) {
 	nbKept := 0
 	half.saved = nil
 	var saved *page
-	for _, r := range a.cacheSG.all[ndx:] {
+	for i, r := range a.cacheSG.all[ndx:] {
+		fmt.Println("KKU cleanSG loop ", i, skip, r.length())
 		first, last, nb := r.convertToPages(a.pc, skip, ac)
 		if half.saved == nil {
 			half.saved = first
@@ -1175,11 +1182,13 @@ func (a *Assembler) skipFlush(conn *connection, half *halfconnection) {
 	// Well, it's embarassing it there is still something in half.saved
 	// FIXME: change API to give back saved + new/no packets
 	if half.first == nil {
+		fmt.Println("KKU no first")
 		a.closeHalfConnection(conn, half)
 		return
 	}
 	a.ret = a.ret[:0]
 	a.addNextFromConn(half)
+	fmt.Println("KKU send to connection")
 	nextSeq := a.sendToConnection(conn, half, a.ret[0].assemblerContext())
 	if nextSeq != invalidSequence {
 		half.nextSeq = nextSeq
@@ -1311,8 +1320,10 @@ func (a *Assembler) FlushAll() (closed int) {
 		conn.mu.Lock()
 		for _, half := range []*halfconnection{&conn.s2c, &conn.c2s} {
 			for !half.closed {
+				fmt.Println("KKU skip flush")
 				a.skipFlush(conn, half)
 			}
+
 			if !half.closed {
 				a.closeHalfConnection(conn, half)
 			}

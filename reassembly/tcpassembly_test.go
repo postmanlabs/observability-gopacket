@@ -955,6 +955,7 @@ type testKeepSequence struct {
 	keep    int
 	want    []byte
 	skipped int
+	flush   bool
 }
 
 func testKeep(t *testing.T, s []testKeepSequence) {
@@ -964,6 +965,8 @@ func testKeep(t *testing.T, s []testKeepSequence) {
 	a.MaxBufferedPagesPerConnection = 4
 	port := layers.TCPPort(0)
 	for i, test := range s {
+		fmt.Printf("====== KKU %d =======\n", i)
+
 		// Fake some values according to ports
 		flow := netFlow
 		dir := TCPDirClientToServer
@@ -981,14 +984,21 @@ func testKeep(t *testing.T, s []testKeepSequence) {
 			fmt.Printf("#### testKeep: #%d: sending:%s\n", i, hex.EncodeToString(test.tcp.BaseLayer.Payload))
 		}
 		a.Assemble(flow, &test.tcp)
-		if !reflect.DeepEqual(fact.bytes, test.want) {
-			t.Fatalf("#%d: invalid bytes: got %v, expected %v", i, fact.bytes, test.want)
-		}
-		if fact.skipped != test.skipped {
-			t.Fatalf("#%d: expecting %d skipped bytes, got %d", i, test.skipped, fact.skipped)
-		}
+		/*
+			if !reflect.DeepEqual(fact.bytes, test.want) {
+				t.Fatalf("#%d: invalid bytes: got %v, expected %v", i, fact.bytes, test.want)
+			}
+			if fact.skipped != test.skipped {
+				t.Fatalf("#%d: expecting %d skipped bytes, got %d", i, test.skipped, fact.skipped)
+			}
+		*/
 		if testDebug {
 			fmt.Printf("#### testKeep: #%d: bytes: %s\n", i, hex.EncodeToString(fact.bytes))
+		}
+
+		if test.flush {
+			fmt.Println("KKU flushall")
+			a.FlushAll()
 		}
 	}
 }
@@ -1191,6 +1201,43 @@ func TestKeepWithFlush(t *testing.T) {
 			want:    []byte{8},
 		},
 	})
+}
+
+func TestKeepWithManualFlush(t *testing.T) {
+	testKeep(t, []testKeepSequence{
+		{
+			tcp: layers.TCP{
+				SrcPort:   1,
+				DstPort:   2,
+				Seq:       1002,
+				BaseLayer: layers.BaseLayer{Payload: []byte{2}},
+			},
+			want: []byte{4, 5},
+		},
+		{
+			tcp: layers.TCP{
+				SrcPort:   1,
+				DstPort:   2,
+				Seq:       1003,
+				BaseLayer: layers.BaseLayer{Payload: []byte{3, 4, 5, 6}},
+			},
+			want: []byte{5, 6},
+		},
+		{
+			tcp: layers.TCP{
+				SrcPort: 1,
+				DstPort: 2,
+				// SYN:       true,
+				Seq:       1000,
+				BaseLayer: layers.BaseLayer{Payload: []byte{1}},
+			},
+			keep:  3,
+			want:  []byte{1, 2, 3},
+			flush: true,
+		},
+	})
+
+	t.Errorf("fake error")
 }
 
 /*
