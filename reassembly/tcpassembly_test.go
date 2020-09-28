@@ -9,6 +9,7 @@ package reassembly
 import (
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"net"
 	"reflect"
 	"runtime"
@@ -954,6 +955,7 @@ type testKeepSequence struct {
 	keep    int
 	want    []byte
 	skipped int
+	flush   bool
 }
 
 func testKeep(t *testing.T, s []testKeepSequence) {
@@ -988,6 +990,10 @@ func testKeep(t *testing.T, s []testKeepSequence) {
 		}
 		if testDebug {
 			fmt.Printf("#### testKeep: #%d: bytes: %s\n", i, hex.EncodeToString(fact.bytes))
+		}
+
+		if test.flush {
+			a.FlushAll()
 		}
 	}
 }
@@ -1188,6 +1194,44 @@ func TestKeepWithFlush(t *testing.T) {
 			keep:    0,
 			skipped: 1,
 			want:    []byte{8},
+		},
+	})
+}
+
+func TestKeepWithOutOfOrderPacketAndManualFlush(t *testing.T) {
+	makePayload := func(length int) []byte {
+		data := make([]byte, length)
+		rand.Read(data)
+		return data
+	}
+
+	// The first packet is received out of order. It contains `pageBytes + 1`
+	// number of bytes, so it spans 2 pages.
+	// The second packet carries a single byte before the first packet, and we
+	// request to keep `pageBytes` bytes. Then trigger a flush.
+	// Prior to a fix, this would result in an slice bounds out of range panic
+	// when the code tries to incorrectly skip the leading bytes on the second
+	// page of the first packet.
+	testKeep(t, []testKeepSequence{
+		{
+			tcp: layers.TCP{
+				SrcPort:   1,
+				DstPort:   2,
+				Seq:       1001,
+				BaseLayer: layers.BaseLayer{Payload: makePayload(pageBytes + 1)},
+			},
+			want: []byte{},
+		},
+		{
+			tcp: layers.TCP{
+				SrcPort:   1,
+				DstPort:   2,
+				Seq:       1000,
+				BaseLayer: layers.BaseLayer{Payload: []byte{1}},
+			},
+			keep:  pageBytes,
+			want:  []byte{},
+			flush: true,
 		},
 	})
 }
