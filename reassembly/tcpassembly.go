@@ -594,7 +594,7 @@ func NewAssembler(pool *StreamPool) *Assembler {
 // Dump returns a short string describing the page usage of the Assembler
 func (a *Assembler) Dump() string {
 	s := ""
-	s += fmt.Sprintf("pageCache: used: %d, size: %d, free: %d", a.pc.used, a.pc.size, len(a.pc.free))
+	s += fmt.Sprintf("pageCache: used: %d:", a.pc.used)
 	return s
 }
 
@@ -833,7 +833,7 @@ func (a *Assembler) checkOverlap(half *halfconnection, queue bool, ac AssemblerC
 		} else
 
 		// end < cur.end && start > cur.start: replace bytes inside cur (6)
-		if diffEnd > 0 && diffStart < 0 {
+		if diffEnd >= 0 && diffStart <= 0 {
 			if *debugLog {
 				log.Printf("case 6\n")
 			}
