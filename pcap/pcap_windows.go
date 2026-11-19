@@ -152,7 +152,7 @@ var (
 	pcapSetBufferSizePtr,
 	pcapSetImmediateModePtr,
 	pcapHopenOfflinePtr,
-	pcapBreakloop uintptr
+	pcapBreakloopPtr uintptr
 )
 
 func init() {
@@ -248,7 +248,7 @@ func LoadWinPCAP() error {
 	//libpcap <1.5 does not have pcap_set_immediate_mode
 	pcapSetImmediateModePtr = mightLoad("pcap_set_immediate_mode")
 	pcapHopenOfflinePtr = mustLoad("pcap_hopen_offline")
-	pcapBreakloop = mustLoad("pcap_breakloop")
+	pcapBreakloopPtr = mustLoad("pcap_breakloop")
 
 	pcapLoaded = true
 	return nil
@@ -519,6 +519,10 @@ func (p *Handle) pcapSetDatalink(dlt layers.LinkType) error {
 		return p.pcapGeterr()
 	}
 	return nil
+}
+
+func (p *Handle) pcapBreakloop() {
+	syscall.Syscall(pcapBreakloopPtr, 1, uintptr(p.cptr), 0, 0)
 }
 
 func pcapDatalinkValToName(dlt int) string {
