@@ -301,3 +301,38 @@ func ExampleBPF() {
 	// SYN flag not set
 	// SYN flag not set
 }
+
+func TestBreakloop(t *testing.T) {
+	handle, err := OpenOffline("test_ethernet.pcap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Close()
+
+	if _, _, err := handle.ReadPacketData(); err != nil {
+		t.Fatal("Unexpected error reading first packet:", err)
+	}
+
+	// Breakloop should cause the next read to stop early, even though the file
+	// has more packets.
+	handle.Breakloop()
+	if _, _, err := handle.ReadPacketData(); err != io.EOF {
+		t.Fatal("Expected io.EOF after Breakloop, got", err)
+	}
+
+	// libpcap clears the break flag once it is consumed, so reading resumes
+	// with the remaining packets.
+	remaining := 0
+	for {
+		_, _, err := handle.ReadPacketData()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal("Unexpected error reading packet:", err)
+		}
+		remaining++
+	}
+	if remaining != 9 {
+		t.Fatal("Incorrect number of remaining packets, want 9 got", remaining)
+	}
+}

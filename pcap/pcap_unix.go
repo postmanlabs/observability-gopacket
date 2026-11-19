@@ -5,6 +5,7 @@
 // that can be found in the LICENSE file in the root of the source
 // tree.
 //
+//go:build !windows
 // +build !windows
 
 package pcap
@@ -407,6 +408,10 @@ func (p *Handle) pcapSetDatalink(dlt layers.LinkType) error {
 		return p.pcapGeterr()
 	}
 	return nil
+}
+
+func (p *Handle) pcapBreakloop() {
+	C.pcap_breakloop(p.cptr)
 }
 
 func pcapDatalinkValToName(dlt int) string {

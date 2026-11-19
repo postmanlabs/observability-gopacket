@@ -151,7 +151,8 @@ var (
 	pcapSetRfmonPtr,
 	pcapSetBufferSizePtr,
 	pcapSetImmediateModePtr,
-	pcapHopenOfflinePtr uintptr
+	pcapHopenOfflinePtr,
+	pcapBreakloop uintptr
 )
 
 func init() {
@@ -247,6 +248,7 @@ func LoadWinPCAP() error {
 	//libpcap <1.5 does not have pcap_set_immediate_mode
 	pcapSetImmediateModePtr = mightLoad("pcap_set_immediate_mode")
 	pcapHopenOfflinePtr = mustLoad("pcap_hopen_offline")
+	pcapBreakloop = mustLoad("pcap_breakloop")
 
 	pcapLoaded = true
 	return nil
